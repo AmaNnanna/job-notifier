@@ -1,0 +1,11 @@
+gitignore
+
+# Vendor directory
+/vendor/
+
+# Environment variables file
+.env
+
+# Log files
+*.log
+*.json
