@@ -32,22 +32,30 @@ class JobSearcher
         'node.js',
         'react',
         'vue',
-        'angular',
-        'next.js',
-        'nuxt',
-        'typescript',
+        'python',
+        'c',
+        'c#',
+        'c++',
+        'java',
         'full stack',
         'fullstack',
         'backend',
         'frontend',
         'web developer',
         'software engineer',
+        'cloud',
+        'cloud engineer',
+        'devops',
+        'infrastructure',
+        'system administrator',
+        'docker',
+        'aws',
+        'container',
         'remote',
         'work from home',
         'technical writer',
         'api documentation',
         'documentation',
-        'docs',
         'technical content',
         'programmer writer',
         'software writer',
@@ -55,6 +63,22 @@ class JobSearcher
         'tech writer',
         'remote writer',
         'remote technical writer',
+    ];
+
+    private array $categoryKeywords = [
+        'development',
+        'software-dev',
+        'programming',
+        'software programming',
+        'software development',
+        'software engineer',
+        'engineering',
+        'writing',
+        'content',
+        'technical writing',
+        'documentation',
+        'devops',
+        'infrastructure',
     ];
 
     /** Accumulated run statistics — populated by run() */
@@ -72,17 +96,43 @@ class JobSearcher
      *
      * @param string $mode  'cli' → log to stdout | 'web' → populate $this->stats only
      */
+
+    private array $sources;
+    public function __construct()
+    {
+        $this->sources = [
+            'remoteOK' => ['$this->skillKeywords'],
+            'arbeitNow' => [$this->categoryKeywords, $this->skillKeywords],
+            'workingNomads' => [$this->categoryKeywords],
+        ];
+    }
+
     public function run(string $mode = 'cli'): void
     {
         $this->log($mode, 'Starting job search…');
 
+        $fetchers = [
+            'fetchRemoteOK',
+            'fetchArbeitnow',
+            'fetchWorkingNomads',
+            // 'fetchRemotive',
+            // 'fetchHimalayas',
+            // 'fetchWeWorkRemotely',
+            // 'fetchJobicy',
+            // 'fetchTheMuse',
+            // 'fetchHackerNews',
+            // 'fetchDevTo',
+            // 'fetchGitLab',
+            // 'fetchWellfound',
+            // 'fetchWorkAtAStartup',
+            // 'fetchDynamiteJobs',
+            // 'fetchFlutterwave',
+            // 'fetchKuda'
+        ];
+
         // 1. Fetch from all sources
         $all = array_merge(
-            $this->fetchRemoteOK(),
-            $this->fetchArbeitnow(),
-            $this->fetchWorkingNomads(),
-            $this->fetchRemotive(),
-            !empty(ADZUNA_APP_ID) && !empty(ADZUNA_APP_KEY) ? $this->fetchAdzuna() : [],
+            ...array_map(fn($method) => $this->$method(), $fetchers)
         );
 
         // 2. Deduplicate, filter by skill, filter already-seen
@@ -125,24 +175,37 @@ class JobSearcher
         $this->writeLog();
     }
 
+    private function mergeJson(string $json): array
+    {
+        $parsed = json_decode($json, true);
+        if (!is_array($parsed)) {
+            return [];
+        }
+
+        $data = $parsed['data'] ?? $parsed;
+
+        if (array_keys($data) === range(0, count($data) - 1)) {
+        return $data;
+        }
+
+        return [$data];
+    }
+
     // ─── Source fetchers ──────────────────────────────────────────────────────
     //[No signup]
     //RemoteOk
     private function fetchRemoteOK(): array
     {
         $jobs = [];
-        $url  = 'https://remoteok.com/api?tags=php,javascript,react,nodejs,laravel,vue';
+        $tags = implode(',', $this->sources['remoteOK']);
+        $url  = "https://remoteok.com/api?tags={$tags}";
         $data = $this->httpGet($url, ['Referer: https://remoteok.com']);
 
         if (!$data) {
             return [];
         }
 
-        $listings = json_decode($data, true);
-
-        if (!is_array($listings)) {
-            return [];
-        }
+        $listings = $this->mergeJson($data);
 
         foreach ($listings as $item) {
             if (!isset($item['id'])) {
@@ -167,19 +230,18 @@ class JobSearcher
     private function fetchArbeitnow(): array
     {
         $jobs = [];
-        $data = $this->httpGet('https://www.arbeitnow.com/api/job-board-api?page=1');
+        $tags = implode(',', $this->skillKeywords);
+        $categorys = implode(',', $this->categoryKeywords);
+        $url = "https://www.arbeitnow.com/api/job-board-api?tags={$tags}&category={$categorys}";
+        $data = $this->httpGet($url);
 
         if (!$data) {
             return [];
         }
 
-        $parsed = json_decode($data, true);
+        $listings = $this->mergeJson($data);
 
-        if (!isset($parsed['data'])) {
-            return [];
-        }
-
-        foreach ($parsed['data'] as $item) {
+        foreach ($listings as $item) {
             $jobs[] = [
                 'id'          => 'arbeitnow_' . ($item['slug'] ?? md5($item['url'] ?? '')),
                 'title'       => $item['title']        ?? 'N/A',
@@ -199,17 +261,14 @@ class JobSearcher
     private function fetchWorkingNomads(): array
     {
         $jobs = [];
-        $data = $this->httpGet('https://www.workingnomads.com/api/exposed_jobs/?category=development');
+        $category = implode(',', $this->sources['workingNomads']);
+        $data = $this->httpGet("https://www.workingnomads.com/api/exposed_jobs/?category={$category}");
 
         if (!$data) {
             return [];
         }
 
-        $listings = json_decode($data, true);
-
-        if (!is_array($listings)) {
-            return [];
-        }
+        $listings = $this->mergeJson($data);
 
         foreach ($listings as $item) {
             $jobs[] = [
@@ -227,325 +286,7 @@ class JobSearcher
         return $jobs;
     }
 
-    //Remotive
-    private function fetchRemotive(): array
-    {
-        $jobs = [];
-        $url = 'https://remotive.com/api/remote-jobs?category=software-dev&limit=100';
-        $data = $this->httpGet($url);
-        if (!$data) return [];
-        $parsed = json_decode($data, true);
-        foreach ($parsed['jobs'] ?? [] as $item) {
-            $jobs[] = [
-                'id' => 'remotive_' . $item['id'],
-                'title' => $item['title'] ?? 'N/A',
-                'company' => $item['company_name'] ?? 'N/A',
-                'location' => $item['candidate_required_location'] ?? 'N/A',
-                'url' => $item['url'] ?? '#',
-                'description' => strip_tags($item['description'] ?? ''),
-                'tags' => implode(', ', $item['tags'] ?? []),
-                'source' => 'Remotive',
-                'posted_at' => date('Y-m-d', strtotime($item['publication_date'] ?? 'now')),
-            ];
-        }
-        return $jobs;
-    }
-
-    //Himalayas
-    private function fetchHimalayas(): array
-    {
-        $jobs = [];
-        $url  = 'https://himalayas.app/jobs/api?skills=php,javascript,react,nodejs&limit=100';
-        $data = $this->httpGet($url);
-        if (!$data) return [];
-        $parsed = json_decode($data, true);
-        foreach ($parsed['jobs'] ?? [] as $item) {
-            $jobs[] = [
-                'id'          => 'himalayas_' . ($item['slug'] ?? md5($item['applicationLink'] ?? '')),
-                'title'       => $item['title'] ?? 'N/A',
-                'company'     => $item['companyName'] ?? 'N/A',
-                'location'    => $item['locationRestrictions'] ?? 'Remote',
-                'url'         => $item['applicationLink'] ?? '#',
-                'description' => strip_tags($item['description'] ?? ''),
-                'tags'        => implode(', ', $item['skills'] ?? []),
-                'source'      => 'Himalayas',
-                'posted_at'   => date('Y-m-d', strtotime($item['publishedAt'] ?? 'now')),
-            ];
-        }
-        return $jobs;
-    }
-
-    //We work remotely
-    private function fetchWeWorkRemotely(): array
-    {
-        $jobs = [];
-        $feeds = [
-            'https://weworkremotely.com/categories/remote-programming-jobs.rss',
-            'https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss',
-        ];
-        foreach ($feeds as $url) {
-            $xml = $this->httpGet($url);
-            if (!$xml) continue;
-            // Suppress XML errors for malformed feeds
-            libxml_use_internal_errors(true);
-            $feed = simplexml_load_string($xml);
-            if (!$feed) continue;
-            foreach ($feed->channel->item ?? [] as $item) {
-                $id = md5((string)$item->link);
-                $jobs[] = [
-                    'id'          => 'wwr_' . $id,
-                    'title'       => (string)$item->title,
-                    'company'     => (string)($item->children('https://weworkremotely.com')->company ?? 'N/A'),
-                    'location'    => 'Remote',
-                    'url'         => (string)$item->link,
-                    'description' => strip_tags((string)$item->description),
-                    'tags'        => '',
-                    'source'      => 'We Work Remotely',
-                    'posted_at'   => date('Y-m-d', strtotime((string)$item->pubDate ?? 'now')),
-                ];
-            }
-        }
-        return $jobs;
-    }
-
-    //Jobicy
-    private function fetchJobicy(): array
-    {
-        $jobs = [];
-        $url  = 'https://jobicy.com/api/v2/remote-jobs?count=50&tag=php,javascript,react';
-        $data = $this->httpGet($url);
-        if (!$data) return [];
-        $parsed = json_decode($data, true);
-        foreach ($parsed['jobs'] ?? [] as $item) {
-            $jobs[] = [
-                'id'          => 'jobicy_' . ($item['id'] ?? md5($item['url'] ?? '')),
-                'title'       => $item['jobTitle'] ?? 'N/A',
-                'company'     => $item['companyName'] ?? 'N/A',
-                'location'    => $item['jobGeo'] ?? 'Remote',
-                'url'         => $item['url'] ?? '#',
-                'description' => strip_tags($item['jobDescription'] ?? ''),
-                'tags'        => implode(', ', $item['jobIndustry'] ?? []),
-                'source'      => 'Jobicy',
-                'posted_at'   => date('Y-m-d', strtotime($item['pubDate'] ?? 'now')),
-            ];
-        }
-        return $jobs;
-    }
-
-    //The muse
-    private function fetchTheMuse(): array
-    {
-        $jobs = [];
-        if (empty(THEMUSE_API_KEY)) return [];
-        $categories = ['Engineering', 'Software Engineer'];
-        foreach ($categories as $cat) {
-            $url  = 'https://www.themuse.com/api/public/jobs?category=' . urlencode($cat) . '&level=Senior+Level&level=Mid+Level&api_key=' . THEMUSE_API_KEY . '&page=1';
-            $data = $this->httpGet($url);
-            if (!$data) continue;
-            $parsed = json_decode($data, true);
-            foreach ($parsed['results'] ?? [] as $item) {
-                $jobs[] = [
-                    'id'          => 'muse_' . ($item['id'] ?? md5($item['refs']['landing_page'] ?? '')),
-                    'title'       => $item['name'] ?? 'N/A',
-                    'company'     => $item['company']['name'] ?? 'N/A',
-                    'location'    => implode(', ', array_column($item['locations'] ?? [], 'name')),
-                    'url'         => $item['refs']['landing_page'] ?? '#',
-                    'description' => strip_tags($item['contents'] ?? ''),
-                    'tags'        => implode(', ', array_column($item['tags'] ?? [], 'name')),
-                    'source'      => 'The Muse',
-                    'posted_at'   => date('Y-m-d', strtotime($item['publication_date'] ?? 'now')),
-                ];
-            }
-        }
-        return $jobs;
-    }
-
-    //Hacker news
-    private function fetchHackerNews(): array
-    {
-        $jobs = [];
-        // Find the latest "Who is Hiring" thread ID
-        $search = $this->httpGet('https://hn.algolia.com/api/v1/search?query=Ask+HN+Who+is+hiring&tags=story,ask_hn&hitsPerPage=1');
-        if (!$search) return [];
-        $searchData = json_decode($search, true);
-        $threadId   = $searchData['hits'][0]['objectID'] ?? null;
-        if (!$threadId) return [];
-
-        // Fetch top-level comments from that thread
-        $thread = $this->httpGet("https://hn.algolia.com/api/v1/items/{$threadId}");
-        if (!$thread) return [];
-        $threadData = json_decode($thread, true);
-
-        $keywords = ['php', 'laravel', 'react', 'vue', 'angular', 'node', 'javascript'];
-
-        foreach (array_slice($threadData['children'] ?? [], 0, 200) as $comment) {
-            $text = strip_tags($comment['text'] ?? '');
-            if (empty($text)) continue;
-            $lower = strtolower($text);
-            $match = false;
-            foreach ($keywords as $kw) {
-                if (str_contains($lower, $kw)) {
-                    $match = true;
-                    break;
-                }
-            }
-            if (!$match) continue;
-
-            // Extract first line as title
-            $lines = array_filter(explode("\n", $text));
-            $title = trim(substr(reset($lines), 0, 80)) ?: 'HN Job Post';
-
-            $jobs[] = [
-                'id'          => 'hn_' . ($comment['id'] ?? md5($text)),
-                'title'       => $title,
-                'company'     => 'See post',
-                'location'    => 'See post',
-                'url'         => 'https://news.ycombinator.com/item?id=' . ($comment['id'] ?? ''),
-                'description' => substr($text, 0, 300),
-                'tags'        => 'hacker news',
-                'source'      => 'Hacker News',
-                'posted_at'   => date('Y-m-d', $comment['created_at_i'] ?? time()),
-            ];
-        }
-        return $jobs;
-    }
-
-    //Dev.to
-    private function fetchDevTo(): array
-    {
-        $jobs = [];
-        $tags = ['php', 'javascript', 'react', 'node', 'vue', 'laravel', 'angular'];
-        foreach ($tags as $tag) {
-            $url  = 'https://dev.to/api/listings?category=cfp&tag=' . $tag . '&per_page=50';
-            $data = $this->httpGet($url, ['api-key: ']);
-            if (!$data) continue;
-            $listings = json_decode($data, true);
-            if (!is_array($listings)) continue;
-            foreach ($listings as $item) {
-                // Only include job/hiring listings
-                $title = $item['title'] ?? '';
-                $body  = strtolower($item['body_markdown'] ?? '');
-                if (
-                    !str_contains(strtolower($title), 'hir') &&
-                    !str_contains($body, 'hiring') &&
-                    !str_contains($body, 'job') &&
-                    !str_contains($body, 'remote')
-                ) {
-                    continue;
-                }
-                $jobs[] = [
-                    'id'          => 'devto_' . ($item['id'] ?? md5($title)),
-                    'title'       => $title,
-                    'company'     => $item['user']['name'] ?? 'N/A',
-                    'location'    => 'Remote / See post',
-                    'url'         => 'https://dev.to' . ($item['slug'] ?? ''),
-                    'description' => substr(strip_tags($item['body_markdown'] ?? ''), 0, 300),
-                    'tags'        => implode(', ', $item['tag_list'] ?? []),
-                    'source'      => 'Dev.to',
-                    'posted_at'   => date('Y-m-d', strtotime($item['published_at'] ?? 'now')),
-                ];
-            }
-        }
-        return $jobs;
-    }
-
-    //Gitlab
-    private function fetchGitLab(): array
-    {
-        $jobs = [];
-        // GitLab publishes their own open roles as a public JSON feed
-        $url  = 'https://about.gitlab.com/jobs/all-jobs.json';
-        $data = $this->httpGet($url);
-        if (!$data) return [];
-        $parsed = json_decode($data, true);
-        if (!is_array($parsed)) return [];
-
-        $keywords = [
-            'php',
-            'javascript',
-            'react',
-            'vue',
-            'angular',
-            'node',
-            'laravel',
-            'frontend',
-            'backend',
-            'full stack',
-            'fullstack',
-            'engineer',
-            'developer'
-        ];
-
-        foreach ($parsed as $item) {
-            $haystack = strtolower(
-                ($item['title'] ?? '') . ' ' .
-                    ($item['department'] ?? '') . ' ' .
-                    ($item['description'] ?? '')
-            );
-            $match = false;
-            foreach ($keywords as $kw) {
-                if (str_contains($haystack, $kw)) {
-                    $match = true;
-                    break;
-                }
-            }
-            if (!$match) continue;
-
-            $jobs[] = [
-                'id'          => 'gitlab_' . ($item['id'] ?? md5($item['apply_url'] ?? $item['title'] ?? '')),
-                'title'       => $item['title'] ?? 'N/A',
-                'company'     => 'GitLab',
-                'location'    => $item['location'] ?? 'Remote — Worldwide',
-                'url'         => $item['apply_url'] ?? 'https://about.gitlab.com/jobs/',
-                'description' => strip_tags($item['description'] ?? ''),
-                'tags'        => $item['department'] ?? '',
-                'source'      => 'GitLab',
-                'posted_at'   => date('Y-m-d', strtotime($item['updated_at'] ?? 'now')),
-            ];
-        }
-        return $jobs;
-    }
-
-    //[Requires signup]
-    //Adzuma
-    private function fetchAdzuna(): array
-    {
-        $jobs    = [];
-        $country = ADZUNA_COUNTRY ?? 'gb';
-
-        foreach (['PHP Laravel', 'JavaScript React', 'Node.js', 'Vue Angular'] as $kw) {
-            $url = sprintf(
-                'https://api.adzuna.com/v1/api/jobs/%s/search/1?app_id=%s&app_key=%s&what=%s&max_days_old=1&results_per_page=20',
-                $country,
-                urlencode(ADZUNA_APP_ID),
-                urlencode(ADZUNA_APP_KEY),
-                urlencode($kw)
-            );
-
-            $data = $this->httpGet($url);
-
-            if (!$data) {
-                continue;
-            }
-
-            $parsed = json_decode($data, true);
-
-            foreach ($parsed['results'] ?? [] as $item) {
-                $jobs[] = [
-                    'id'          => 'adzuna_' . ($item['id'] ?? md5($item['redirect_url'] ?? '')),
-                    'title'       => $item['title']                       ?? 'N/A',
-                    'company'     => $item['company']['display_name']     ?? 'N/A',
-                    'location'    => $item['location']['display_name']    ?? 'N/A',
-                    'url'         => $item['redirect_url']                ?? '#',
-                    'description' => strip_tags($item['description']      ?? ''),
-                    'tags'        => $kw,
-                    'source'      => 'Adzuna',
-                    'posted_at'   => date('Y-m-d', strtotime($item['created'] ?? 'now')),
-                ];
-            }
-        }
-        return $jobs;
-    }
+  
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
