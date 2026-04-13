@@ -530,7 +530,7 @@
   <nav class="sidebar">
     <div class="sidebar-logo">🔍</div>
     <a class="nav-btn active" title="Dashboard">📊</a>
-    <a class="nav-btn" href="config.php" title="Settings">⚙️</a>
+    <!-- <a class="nav-btn" href="config.php" title="Settings">⚙️</a> -->
     <a class="nav-btn" href="search_jobs.php?run=1&output=browser" title="Run Search">▶️</a>
   </nav>
 
@@ -546,7 +546,7 @@
         </div>
       </div>
       <div class="topbar-right">
-        <button class="btn btn-outline" onclick="testEmail()">✉️ Test Email</button>
+        <button class="btn btn-outline" onclick="testEmai()">✉️ Test Email</button>
         <button class="btn btn-primary" onclick="triggerSearch()">🔍 Run Now</button>
       </div>
     </header>
@@ -720,7 +720,7 @@
           </div>
 
           <!-- Cron Setup Widget -->
-          <div class="side-widget fade-in">
+          <!-- <div class="side-widget fade-in">
             <div class="side-widget-header">
               <div class="side-widget-title">⚙️ Cron Setup</div>
             </div>
@@ -741,7 +741,7 @@
                 <div class="cron-text">Runs every day at <strong>7:00 AM</strong> server time</div>
               </div>
             </div>
-          </div>
+          </div> -->
 
         </div>
       </div>

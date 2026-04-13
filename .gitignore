@@ -7,6 +7,11 @@ gitignore
 # Environment variables file
 .env
 
+# Page files
+test_sources.php
+phpinfo.php
+
+
 # Log files
 *.log
 *.json
