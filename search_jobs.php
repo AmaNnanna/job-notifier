@@ -63,7 +63,6 @@ class JobSearcher
         'tech writer',
         'remote writer',
         'remote technical writer',
-        'cloud engineer',
         'startup',
     ];
 
@@ -100,28 +99,6 @@ class JobSearcher
      *
      * @param string $mode  'cli' → log to stdout | 'web' → populate $this->stats only
      */
-
-    private array $sources;
-    public function __construct()
-    {
-        $this->sources = [
-            'remoteOK' => ['$this->skillKeywords'],
-            'arbeitNow' => [$this->categoryKeywords, $this->skillKeywords],
-            'workingNomads' => [$this->categoryKeywords],
-            'remotive' => [$this->categoryKeywords],
-            'himalayas' => [$this->skillKeywords],
-            'jobicy' => [$this->skillKeywords],
-            'hackerNews' => [$this->skillKeywords],
-            'devTo' => [$this->skillKeywords],
-            'gitLab' => [$this->skillKeywords],
-            'workAtAStartup' => [$this->skillKeywords],
-            'dynamiteJobs' => [$this->skillKeywords],
-            'moniepoint' => [$this->skillKeywords],
-            'termii' => [$this->skillKeywords],
-            'heliumHealth' => [$this->skillKeywords],
-            'paystack' => [$this->skillKeywords],
-        ];
-    }
 
     public function run(string $mode = 'cli'): void
     {
@@ -208,12 +185,12 @@ class JobSearcher
     }
 
     // ─── Source fetchers ──────────────────────────────────────────────────────
-    //[No signup]
-    //RemoteOk
+
+    // [No signup] Remote OK
     private function fetchRemoteOK(): array
     {
         $jobs = [];
-        $tags = implode(',', $this->sources['remoteOK']);
+        $tags = implode(',', $this->skillKeywords);
         $url  = "https://remoteok.com/api?tags={$tags}";
         $data = $this->httpGet($url, ['Referer: https://remoteok.com']);
 
@@ -240,17 +217,14 @@ class JobSearcher
             ];
         }
         return $jobs;
-        echo "Fetched " . count($listings) . " jobs from source\n";
-        die();
     }
 
-    //Arbeitnow
+    // Arbeitnow
     private function fetchArbeitnow(): array
     {
         $jobs = [];
-        $tags = implode(',', $this->skillKeywords);
-        $categorys = implode(',', $this->categoryKeywords);
-        $url = "https://www.arbeitnow.com/api/job-board-api?tags={$tags}&category={$categorys}";
+        // Arbeitnow API accepts a single category — use the first valid one
+        $url  = 'https://www.arbeitnow.com/api/job-board-api?page=1';
         $data = $this->httpGet($url);
 
         if (!$data) {
@@ -275,12 +249,12 @@ class JobSearcher
         return $jobs;
     }
 
-    //Working Nomads
+    // Working Nomads
     private function fetchWorkingNomads(): array
     {
         $jobs = [];
-        $category = implode(',', $this->sources['workingNomads']);
-        $data = $this->httpGet("https://www.workingnomads.com/api/exposed_jobs/?category={$category}");
+        // API accepts a single category slug — 'development' is the correct one
+        $data = $this->httpGet('https://www.workingnomads.com/api/exposed_jobs/?category=development');
 
         if (!$data) {
             return [];
@@ -304,44 +278,44 @@ class JobSearcher
         return $jobs;
     }
 
-    //Remotive
+    // Remotive
     private function fetchRemotive(): array
     {
         $jobs = [];
-        $category = implode(',', $this->sources['remotive']);
-        $url = "https://remotive.com/api/remote-jobs?category={$category}";
+        // API accepts a single category — 'software-dev' covers all dev roles
+        $url  = 'https://remotive.com/api/remote-jobs?category=software-dev';
         $data = $this->httpGet($url);
         if (!$data) return [];
         $listings = $this->mergeJson($data);
         foreach ($listings as $item) {
             $jobs[] = [
-                'id' => 'remotive_' . $item['id'],
-                'title' => $item['title'] ?? 'N/A',
-                'company' => $item['company_name'] ?? 'N/A',
-                'location' => $item['candidate_required_location'] ?? 'N/A',
-                'url' => $item['url'] ?? '#',
+                'id'          => 'remotive_' . $item['id'],
+                'title'       => $item['title']       ?? 'N/A',
+                'company'     => $item['company_name'] ?? 'N/A',
+                'location'    => $item['candidate_required_location'] ?? 'N/A',
+                'url'         => $item['url']          ?? '#',
                 'description' => strip_tags($item['description'] ?? ''),
-                'tags' => implode(', ', $item['tags'] ?? []),
-                'source' => 'Remotive',
-                'posted_at' => date('Y-m-d', strtotime($item['publication_date'] ?? 'now')),
+                'tags'        => implode(', ', $item['tags'] ?? []),
+                'source'      => 'Remotive',
+                'posted_at'   => date('Y-m-d', strtotime($item['publication_date'] ?? 'now')),
             ];
         }
         return $jobs;
     }
 
-    //Himalayas
+    // Himalayas
     private function fetchHimalayas(): array
     {
         $jobs = [];
-        $skills = implode(',', $this->sources['himalayas']);
-        $url  = "https://himalayas.app/jobs/api?skills={$skills}&limit=100";
-        $data = $this->httpGet($url);
+        $skills = implode(',', $this->skillKeywords);
+        $url    = "https://himalayas.app/jobs/api?skills={$skills}&limit=100";
+        $data   = $this->httpGet($url);
         if (!$data) return [];
         $listings = $this->mergeJson($data);
         foreach ($listings as $item) {
             $jobs[] = [
                 'id'          => 'himalayas_' . ($item['slug'] ?? md5($item['applicationLink'] ?? '')),
-                'title'       => $item['title'] ?? 'N/A',
+                'title'       => $item['title']       ?? 'N/A',
                 'company'     => $item['companyName'] ?? 'N/A',
                 'location'    => $item['locationRestrictions'] ?? 'Remote',
                 'url'         => $item['applicationLink'] ?? '#',
@@ -354,7 +328,7 @@ class JobSearcher
         return $jobs;
     }
 
-    //We work remotely
+    // We Work Remotely
     private function fetchWeWorkRemotely(): array
     {
         $jobs = [];
@@ -365,7 +339,6 @@ class JobSearcher
         foreach ($feeds as $url) {
             $xml = $this->httpGet($url);
             if (!$xml) continue;
-            // Suppress XML errors for malformed feeds
             libxml_use_internal_errors(true);
             $feed = simplexml_load_string($xml);
             if (!$feed) continue;
@@ -387,22 +360,21 @@ class JobSearcher
         return $jobs;
     }
 
-    //Jobicy
+    // Jobicy — no API key required on the free public endpoint
     private function fetchJobicy(): array
     {
         $jobs = [];
-        $skills = implode(',', $this->sources['jobicy']);
-        $url  = "https://jobicy.com/api/v2/remote-jobs?count=50&tag={$skills}";
+        $url  = 'https://jobicy.com/api/v2/remote-jobs?count=50&tag=php,javascript,react,nodejs,laravel,vue';
         $data = $this->httpGet($url);
         if (!$data) return [];
         $listings = $this->mergeJson($data);
         foreach ($listings as $item) {
             $jobs[] = [
                 'id'          => 'jobicy_' . ($item['id'] ?? md5($item['url'] ?? '')),
-                'title'       => $item['jobTitle'] ?? 'N/A',
+                'title'       => $item['jobTitle']    ?? 'N/A',
                 'company'     => $item['companyName'] ?? 'N/A',
-                'location'    => $item['jobGeo'] ?? 'Remote',
-                'url'         => $item['url'] ?? '#',
+                'location'    => $item['jobGeo']      ?? 'Remote',
+                'url'         => $item['url']         ?? '#',
                 'description' => strip_tags($item['jobDescription'] ?? ''),
                 'tags'        => implode(', ', $item['jobIndustry'] ?? []),
                 'source'      => 'Jobicy',
@@ -412,30 +384,26 @@ class JobSearcher
         return $jobs;
     }
 
-    //Hacker news
+    // Hacker News
     private function fetchHackerNews(): array
     {
         $jobs = [];
-        // Find the latest "Who is Hiring" thread ID
         $search = $this->httpGet('https://hn.algolia.com/api/v1/search?query=Ask+HN+Who+is+hiring&tags=story,ask_hn&hitsPerPage=1');
         if (!$search) return [];
         $searchData = json_decode($search, true);
         $threadId   = $searchData['hits'][0]['objectID'] ?? null;
         if (!$threadId) return [];
 
-        // Fetch top-level comments from that thread
         $thread = $this->httpGet("https://hn.algolia.com/api/v1/items/{$threadId}");
         if (!$thread) return [];
         $threadData = json_decode($thread, true);
-
-        $keywords = array_map('strtolower', $this->sources['hackerNews']);
 
         foreach (array_slice($threadData['children'] ?? [], 0, 200) as $comment) {
             $text = strip_tags($comment['text'] ?? '');
             if (empty($text)) continue;
             $lower = strtolower($text);
             $match = false;
-            foreach ($keywords as $kw) {
+            foreach ($this->skillKeywords as $kw) {
                 if (str_contains($lower, $kw)) {
                     $match = true;
                     break;
@@ -443,7 +411,6 @@ class JobSearcher
             }
             if (!$match) continue;
 
-            // Extract first line as title
             $lines = array_filter(explode("\n", $text));
             $title = trim(substr(reset($lines), 0, 80)) ?: 'HN Job Post';
 
@@ -462,19 +429,18 @@ class JobSearcher
         return $jobs;
     }
 
-    //Dev.to
+    // Dev.to
     private function fetchDevTo(): array
     {
         $jobs = [];
-        $tags = array_map('strtolower', $this->sources['devTo']);
+        $tags = ['php', 'javascript', 'react', 'node', 'vue', 'laravel', 'angular'];
         foreach ($tags as $tag) {
             $url  = 'https://dev.to/api/listings?category=cfp&tag=' . $tag . '&per_page=50';
-            $data = $this->httpGet($url, ['api-key: ']);
+            $data = $this->httpGet($url);
             if (!$data) continue;
             $listings = json_decode($data, true);
             if (!is_array($listings)) continue;
             foreach ($listings as $item) {
-                // Only include job/hiring listings
                 $title = $item['title'] ?? '';
                 $body  = strtolower($item['body_markdown'] ?? '');
                 if (
@@ -501,26 +467,23 @@ class JobSearcher
         return $jobs;
     }
 
-    //Gitlab
+    // GitLab — key fixed to match: 'gitLab' → 'gitlab' (use skillKeywords directly)
     private function fetchGitLab(): array
     {
         $jobs = [];
-        // GitLab publishes their own open roles as a public JSON feed
         $url  = 'https://about.gitlab.com/jobs/all-jobs.json';
         $data = $this->httpGet($url);
         if (!$data) return [];
         $listings = $this->mergeJson($data);
 
-        $keywords = array_map('strtolower', $this->sources['gitlab']);
-
         foreach ($listings as $item) {
             $haystack = strtolower(
-                ($item['title'] ?? '') . ' ' .
-                    ($item['department'] ?? '') . ' ' .
+                ($item['title']       ?? '') . ' ' .
+                    ($item['department']  ?? '') . ' ' .
                     ($item['description'] ?? '')
             );
             $match = false;
-            foreach ($keywords as $kw) {
+            foreach ($this->skillKeywords as $kw) {
                 if (str_contains($haystack, $kw)) {
                     $match = true;
                     break;
@@ -530,10 +493,10 @@ class JobSearcher
 
             $jobs[] = [
                 'id'          => 'gitlab_' . ($item['id'] ?? md5($item['apply_url'] ?? $item['title'] ?? '')),
-                'title'       => $item['title'] ?? 'N/A',
+                'title'       => $item['title']      ?? 'N/A',
                 'company'     => 'GitLab',
-                'location'    => $item['location'] ?? 'Remote — Worldwide',
-                'url'         => $item['apply_url'] ?? 'https://about.gitlab.com/jobs/',
+                'location'    => $item['location']   ?? 'Remote — Worldwide',
+                'url'         => $item['apply_url']  ?? 'https://about.gitlab.com/jobs/',
                 'description' => strip_tags($item['description'] ?? ''),
                 'tags'        => $item['department'] ?? '',
                 'source'      => 'GitLab',
@@ -543,12 +506,10 @@ class JobSearcher
         return $jobs;
     }
 
-    //Work at a startup (by Y Combinator)
+    // Work at a Startup (by Y Combinator)
     private function fetchWorkAtAStartup(): array
     {
         $jobs = [];
-
-        // YC's Work at a Startup exposes a public jobs feed
         $url  = 'https://www.workatastartup.com/jobs.json';
         $data = $this->httpGet($url, [
             'Referer: https://www.workatastartup.com',
@@ -558,18 +519,16 @@ class JobSearcher
 
         $listings = $this->mergeJson($data);
 
-        $keywords = array_map('strtolower', $this->sources['workAtAStartup']);
-
         foreach ($listings as $item) {
             $haystack = strtolower(
-                ($item['title'] ?? '') . ' ' .
+                ($item['title']       ?? '') . ' ' .
                     ($item['description'] ?? '') . ' ' .
                     implode(' ', $item['skills'] ?? [])
             );
 
-            $matched = false;
+            $matched    = false;
             $matchedTag = '';
-            foreach ($keywords as $kw) {
+            foreach ($this->skillKeywords as $kw) {
                 if (str_contains($haystack, $kw)) {
                     $matched    = true;
                     $matchedTag = $kw;
@@ -595,17 +554,14 @@ class JobSearcher
         return $jobs;
     }
 
-    //Dynamite jobs
+    // Dynamite Jobs
     private function fetchDynamiteJobs(): array
     {
         $jobs = [];
-
         $feeds = [
             'https://dynamitejobs.com/remote-jobs.rss',
             'https://dynamitejobs.com/category/software-development/remote-jobs.rss',
         ];
-
-        $keywords = array_map('strtolower', $this->sources['dynamiteJobs']);
 
         foreach ($feeds as $url) {
             $xml = $this->httpGet($url);
@@ -622,7 +578,7 @@ class JobSearcher
 
                 $matched    = false;
                 $matchedTag = '';
-                foreach ($keywords as $kw) {
+                foreach ($this->skillKeywords as $kw) {
                     if (str_contains($haystack, $kw)) {
                         $matched    = true;
                         $matchedTag = $kw;
@@ -634,7 +590,6 @@ class JobSearcher
                 $link = (string)($item->link ?? '');
                 $id   = md5($link ?: $title);
 
-                // Try to extract company from title — Dynamite usually formats as "Title at Company"
                 $company = 'N/A';
                 if (preg_match('/\bat\s+(.+)$/i', $title, $m)) {
                     $company = trim($m[1]);
@@ -656,26 +611,21 @@ class JobSearcher
         return $jobs;
     }
 
-    //Moniepoint (Greenhouse)
+    // Moniepoint — using the correct Greenhouse JSON API endpoint
     private function fetchMoniepoint(): array
     {
         $jobs = [];
-        $url  = 'https://job-boards.eu.greenhouse.io/moniepoint';
+        $url  = 'https://boards-api.greenhouse.io/v1/boards/moniepoint/jobs?content=true';
         $data = $this->httpGet($url);
         if (!$data) return [];
 
-        $listings = $this->mergeJson($data);
+        $parsed = json_decode($data, true);
+        if (!is_array($parsed['jobs'] ?? null)) return [];
 
-        $keywords = array_map('strtolower', $this->sources['moniepoint']);
-
-        foreach ($listings as $item) {
-            $haystack = strtolower(
-                ($item['text'] ?? '') . ' ' .
-                    ($item['categories']['team'] ?? '') . ' ' .
-                    strip_tags($item['descriptionPlain'] ?? '')
-            );
-            $matched = false;
-            foreach ($keywords as $kw) {
+        foreach ($parsed['jobs'] as $item) {
+            $haystack = strtolower(($item['title'] ?? '') . ' ' . strip_tags($item['content'] ?? ''));
+            $matched  = false;
+            foreach ($this->skillKeywords as $kw) {
                 if (str_contains($haystack, $kw)) {
                     $matched = true;
                     break;
@@ -684,21 +634,21 @@ class JobSearcher
             if (!$matched) continue;
 
             $jobs[] = [
-                'id'          => 'moniepoint_' . ($item['id'] ?? md5($item['hostedUrl'] ?? '')),
-                'title'       => $item['text'] ?? 'N/A',
+                'id'          => 'moniepoint_' . ($item['id'] ?? md5($item['absolute_url'] ?? '')),
+                'title'       => $item['title'] ?? 'N/A',
                 'company'     => 'Moniepoint',
-                'location'    => $item['categories']['location'] ?? 'Nigeria / Remote',
-                'url'         => $item['hostedUrl'] ?? 'https://moniepoint.com/careers',
-                'description' => substr(strip_tags($item['descriptionPlain'] ?? ''), 0, 300),
-                'tags'        => $item['categories']['team'] ?? 'fintech, nigeria',
+                'location'    => $item['location']['name'] ?? 'Nigeria / Remote',
+                'url'         => $item['absolute_url'] ?? 'https://moniepoint.com/careers',
+                'description' => substr(strip_tags($item['content'] ?? ''), 0, 300),
+                'tags'        => 'fintech, nigeria',
                 'source'      => 'Moniepoint',
-                'posted_at'   => date('Y-m-d', ($item['createdAt'] ?? time()) / 1000),
+                'posted_at'   => date('Y-m-d', strtotime($item['updated_at'] ?? 'now')),
             ];
         }
         return $jobs;
     }
 
-    //Termii
+    // Termii
     private function fetchTermii(): array
     {
         $jobs = [];
@@ -706,22 +656,16 @@ class JobSearcher
         $html = $this->httpGet($url);
         if (!$html) return [];
 
-        // Load HTML into DOMDocument for parsing
         libxml_use_internal_errors(true);
         $dom = new DOMDocument();
         $dom->loadHTML($html);
         libxml_clear_errors();
 
         $xpath = new DOMXPath($dom);
-
-        // Target job listing elements
         $nodes = $xpath->query('//a[contains(@href, "career") or contains(@href, "job")]');
-
-        $keywords = array_map('strtolower', $this->sources['termii']);
 
         $seen = [];
         foreach ($nodes as $node) {
-
             if (!$node instanceof DOMElement) continue;
 
             $title = trim($node->textContent);
@@ -730,7 +674,7 @@ class JobSearcher
 
             $haystack = strtolower($title);
             $matched  = false;
-            foreach ($keywords as $kw) {
+            foreach ($this->skillKeywords as $kw) {
                 if (str_contains($haystack, $kw)) {
                     $matched = true;
                     break;
@@ -738,7 +682,6 @@ class JobSearcher
             }
             if (!$matched) continue;
 
-            // Build full URL if relative
             if (!str_starts_with($href, 'http')) {
                 $href = 'https://termii.com' . $href;
             }
@@ -762,7 +705,7 @@ class JobSearcher
         return $jobs;
     }
 
-    //Helium Health
+    // Helium Health — fixed source key and ID prefix
     private function fetchHeliumHealth(): array
     {
         $jobs = [];
@@ -770,22 +713,16 @@ class JobSearcher
         $html = $this->httpGet($url);
         if (!$html) return [];
 
-        // Load HTML into DOMDocument for parsing
         libxml_use_internal_errors(true);
         $dom = new DOMDocument();
         $dom->loadHTML($html);
         libxml_clear_errors();
 
         $xpath = new DOMXPath($dom);
-
-        // Target job listing elements
         $nodes = $xpath->query('//a[contains(@href, "career") or contains(@href, "job")]');
-
-        $keywords = array_map('strtolower', $this->sources['termii']);
 
         $seen = [];
         foreach ($nodes as $node) {
-
             if (!$node instanceof DOMElement) continue;
 
             $title = trim($node->textContent);
@@ -794,7 +731,7 @@ class JobSearcher
 
             $haystack = strtolower($title);
             $matched  = false;
-            foreach ($keywords as $kw) {
+            foreach ($this->skillKeywords as $kw) {
                 if (str_contains($haystack, $kw)) {
                     $matched = true;
                     break;
@@ -802,7 +739,6 @@ class JobSearcher
             }
             if (!$matched) continue;
 
-            // Build full URL if relative
             if (!str_starts_with($href, 'http')) {
                 $href = 'https://heliumhealth.com' . $href;
             }
@@ -812,7 +748,7 @@ class JobSearcher
             $seen[$id] = true;
 
             $jobs[] = [
-                'id'          => 'termii_' . $id,
+                'id'          => 'heliumhealth_' . $id,
                 'title'       => $title,
                 'company'     => 'Helium Health',
                 'location'    => 'Lagos, Nigeria / Remote',
@@ -826,22 +762,21 @@ class JobSearcher
         return $jobs;
     }
 
-    //Paystack (Greenhouse)
+    // Paystack — using the correct Greenhouse JSON API endpoint
     private function fetchPaystack(): array
     {
         $jobs = [];
-        $url  = 'https://job-boards.greenhouse.io/paystack?error=true';
+        $url  = 'https://boards-api.greenhouse.io/v1/boards/paystack/jobs?content=true';
         $data = $this->httpGet($url);
         if (!$data) return [];
 
-        $listings = $this->mergeJson($data);
+        $parsed = json_decode($data, true);
+        if (!is_array($parsed['jobs'] ?? null)) return [];
 
-        $keywords = array_map('strtolower', $this->sources['paystack']);
-
-        foreach ($listings as $item) {
+        foreach ($parsed['jobs'] as $item) {
             $haystack = strtolower(($item['title'] ?? '') . ' ' . strip_tags($item['content'] ?? ''));
             $matched  = false;
-            foreach ($keywords as $kw) {
+            foreach ($this->skillKeywords as $kw) {
                 if (str_contains($haystack, $kw)) {
                     $matched = true;
                     break;
@@ -910,10 +845,19 @@ class JobSearcher
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_USERAGENT      => 'Mozilla/5.0 (compatible; JobBot/1.0)',
-            CURLOPT_HTTPHEADER     => array_merge(['Accept: application/json'], $extraHeaders),
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            CURLOPT_HTTPHEADER     => array_merge([
+                'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language: en-US,en;q=0.5',
+                'Connection: keep-alive',
+                'Cache-Control: no-cache',
+            ], $extraHeaders),
+            CURLOPT_ENCODING       => '',
         ]);
 
         $body = curl_exec($ch);
@@ -973,7 +917,6 @@ if ($isCli) {
     $searcher->run('cli');
 } elseif ($isWeb) {
     // ── Web / AJAX mode ────────────────────────────────────────────────────
-    // Suppress any accidental output so the JSON response is clean.
     ob_start();
     $searcher = new JobSearcher();
     $searcher->run('web');

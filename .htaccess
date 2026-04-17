@@ -7,3 +7,8 @@ RewriteRule ^ index.php [L]
     Order allow,deny
     Deny from all
 </Files>
+
+<Files "test_email.php">
+    Order allow,deny
+    Deny from all
+</Files>
