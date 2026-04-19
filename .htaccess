@@ -1,14 +1,21 @@
+# ── Rewrite Engine ────────────────────────────────────────────
 RewriteEngine On
+
+RewriteRule ^data/ - [F,L]
+
+RewriteCond %{QUERY_STRING} (^|&)run=1
+RewriteCond %{HTTP_REFERER} !^http://soffl\.com [NC]
+RewriteRule ^search_jobs\.php$ - [F,L]
+
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [L]
 
-<Files "config.php">
-    Order allow,deny
-    Deny from all
-</Files>
+<FilesMatch "^(config|test_email|test_source)\.php$">
+    Require all denied
+</FilesMatch>
 
-<Files "test_email.php">
-    Order allow,deny
-    Deny from all
+<Files ".env">
+    Require all denied
 </Files>

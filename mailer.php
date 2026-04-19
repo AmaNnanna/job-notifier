@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Job Mailer — sends the daily digest via PHPMailer + Gmail SMTP
  * Install PHPMailer: composer require phpmailer/phpmailer
@@ -11,74 +12,88 @@ use PHPMailer\PHPMailer\Exception;
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/config.php';
 
-class JobMailer {
+class JobMailer
+{
 
-    public function sendDailyDigest(array $jobs): bool {
-        $jobs = array_slice($jobs, 0, MAX_JOBS_PER_EMAIL);
+  public function sendDailyDigest(array $jobs): bool
+  {
+    $jobs = array_slice($jobs, 0, MAX_JOBS_PER_EMAIL);
 
-        $mail = new PHPMailer(true);
+    $mail = new PHPMailer(true);
 
-        try {
-            // Server settings
-            $mail->isSMTP();
-            $mail->Host       = SMTP_HOST;
-            $mail->SMTPAuth   = true;
-            $mail->Username   = SMTP_USERNAME;
-            $mail->Password   = SMTP_PASSWORD;
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port       = SMTP_PORT;
+    try {
+      // Server settings
+      $mail->isSMTP();
+      $mail->Host       = SMTP_HOST;
+      $mail->SMTPAuth   = true;
+      $mail->Username   = SMTP_USERNAME;
+      $mail->Password   = SMTP_PASSWORD;
+      $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+      $mail->Port       = SMTP_PORT;
 
-            // Recipients
-            $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
-            $mail->addAddress(RECIPIENT_EMAIL, RECIPIENT_NAME);
+      // Recipients
+      $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+      $mail->addAddress(RECIPIENT_EMAIL, RECIPIENT_NAME);
 
-            // Content
-            $mail->isHTML(true);
-            $mail->Subject = 'There are ' . count($jobs) . ' New Job Matches — ' . date('D, M j Y');
-            $mail->Body    = $this->buildHtmlEmail($jobs);
-            $mail->AltBody = $this->buildPlainText($jobs);
+      // Content
+      $mail->isHTML(true);
+      $mail->Subject = 'There are ' . count($jobs) . ' New Job Matches — ' . date('D, M j Y');
+      $mail->Body    = $this->buildHtmlEmail($jobs);
+      $mail->AltBody = $this->buildPlainText($jobs);
 
-            $mail->send();
-            return true;
-
-        } catch (Exception $e) {
-            error_log("[JobMailer] Failed: {$mail->ErrorInfo}");
-            return false;
-        }
+      $mail->send();
+      return true;
+    } catch (Exception $e) {
+      error_log("[JobMailer] Failed: {$mail->ErrorInfo}");
+      return false;
     }
+  }
 
-    private function buildHtmlEmail(array $jobs): string {
-        $jobCards = '';
-        $sourceColors = [
-            'Remote OK'      => '#10b981',
-            'Arbeitnow'      => '#6366f1',
-            'Working Nomads' => '#f59e0b',
-            'Adzuna'         => '#ef4444',
-        ];
+  private function buildHtmlEmail(array $jobs): string
+  {
+    $jobCards = '';
+    $sourceColors = [
+      'Remote OK'          => '#10b981',
+      'Arbeitnow'          => '#6366f1',
+      'Working Nomads'     => '#f59e0b',
+      'Remotive'           => '#3b82f6',
+      'Himalayas'          => '#8b5cf6',
+      'Jobicy'             => '#06b6d4',
+      'We Work Remotely'   => '#f97316',
+      'Dynamite Jobs'      => '#ec4899',
+      'Hacker News'        => '#f59e0b',
+      'Dev.to'             => '#1e293b',
+      'GitLab'             => '#e24329',
+      'Work at a Startup'  => '#ff6600',
+      'Moniepoint'         => '#0ea5e9',
+      'Paystack'           => '#0ba4e0',
+      'Termii'             => '#7c3aed',
+      'Helium Health'      => '#059669',
+    ];
 
-        foreach ($jobs as $job) {
-            $color   = $sourceColors[$job['source']] ?? '#64748b';
-            $title   = htmlspecialchars($job['title']);
-            $company = htmlspecialchars($job['company']);
-            $location = htmlspecialchars($job['location']);
-            $source  = htmlspecialchars($job['source']);
-            $tags    = htmlspecialchars($job['tags'] ?? '');
-            $url     = htmlspecialchars($job['url']);
-            $desc    = htmlspecialchars(substr($job['description'] ?? '', 0, 200));
-            $desc    = $desc ? $desc . '...' : '';
-            $date    = htmlspecialchars($job['posted_at'] ?? '');
+    foreach ($jobs as $job) {
+      $color   = $sourceColors[$job['source']] ?? '#64748b';
+      $title   = htmlspecialchars($job['title']);
+      $company = htmlspecialchars($job['company']);
+      $location = htmlspecialchars($job['location']);
+      $source  = htmlspecialchars($job['source']);
+      $tags    = htmlspecialchars($job['tags'] ?? '');
+      $url     = htmlspecialchars($job['url']);
+      $desc    = htmlspecialchars(substr($job['description'] ?? '', 0, 200));
+      $desc    = $desc ? $desc . '...' : '';
+      $date    = htmlspecialchars($job['posted_at'] ?? '');
 
-            $tagPills = '';
-            if ($tags) {
-                foreach (explode(',', $tags) as $tag) {
-                    $t = trim($tag);
-                    if ($t) {
-                        $tagPills .= "<span style='display:inline-block;background:#f1f5f9;color:#475569;font-size:11px;padding:2px 8px;border-radius:20px;margin:2px 2px 0 0;font-family:monospace;'>{$t}</span>";
-                    }
-                }
-            }
+      $tagPills = '';
+      if ($tags) {
+        foreach (explode(',', $tags) as $tag) {
+          $t = trim($tag);
+          if ($t) {
+            $tagPills .= "<span style='display:inline-block;background:#f1f5f9;color:#475569;font-size:11px;padding:2px 8px;border-radius:20px;margin:2px 2px 0 0;font-family:monospace;'>{$t}</span>";
+          }
+        }
+      }
 
-            $jobCards .= "
+      $jobCards .= "
             <tr>
               <td style='padding:0 0 16px 0;'>
                 <table width='100%' cellpadding='0' cellspacing='0' style='background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;'>
@@ -114,12 +129,12 @@ class JobMailer {
                 </table>
               </td>
             </tr>";
-        }
+    }
 
-        $count = count($jobs);
-        $date  = date('l, F j, Y');
+    $count = count($jobs);
+    $date  = date('l, F j, Y');
 
-        return "<!DOCTYPE html>
+    return "<!DOCTYPE html>
 <html>
 <head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'></head>
 <body style='margin:0;padding:0;background:#f8fafc;'>
@@ -169,18 +184,19 @@ class JobMailer {
   </table>
 </body>
 </html>";
-    }
+  }
 
-    private function buildPlainText(array $jobs): string {
-        $lines = ["YOUR DAILY JOB DIGEST — " . date('D M j Y'), str_repeat('=', 50), ''];
-        foreach ($jobs as $i => $job) {
-            $lines[] = ($i + 1) . ". {$job['title']}";
-            $lines[] = "   Company : {$job['company']}";
-            $lines[] = "   Location: {$job['location']}";
-            $lines[] = "   Source  : {$job['source']}";
-            $lines[] = "   URL     : {$job['url']}";
-            $lines[] = '';
-        }
-        return implode("\n", $lines);
+  private function buildPlainText(array $jobs): string
+  {
+    $lines = ["YOUR DAILY JOB DIGEST — " . date('D M j Y'), str_repeat('=', 50), ''];
+    foreach ($jobs as $i => $job) {
+      $lines[] = ($i + 1) . ". {$job['title']}";
+      $lines[] = "   Company : {$job['company']}";
+      $lines[] = "   Location: {$job['location']}";
+      $lines[] = "   Source  : {$job['source']}";
+      $lines[] = "   URL     : {$job['url']}";
+      $lines[] = '';
     }
+    return implode("\n", $lines);
+  }
 }

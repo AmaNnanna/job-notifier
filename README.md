@@ -11,7 +11,6 @@ roles for **PHP · Laravel · JavaScript · Node.js · React · Vue · Angular**
 job-notifier/
 ├── index.php           ← Web dashboard (open in browser)
 ├── search_jobs.php     ← CLI script (run via cron)
-├── search_jobs_web.php ← AJAX endpoint (called by dashboard)
 ├── mailer.php          ← PHPMailer email builder
 ├── job_store.php       ← Deduplication + persistence
 ├── test_email.php      ← Test your SMTP config
@@ -73,16 +72,6 @@ php test_email.php
 crontab -e
 ```
 
-Add this line:
-```
-0 7 * * * /usr/bin/php /var/www/html/job-notifier/search_jobs.php >> /var/www/html/job-notifier/data/search.log 2>&1
-```
-
-**Find your PHP path:**
-```bash
-which php
-```
-
 ---
 
 ## 🌐 Job Sources
@@ -92,18 +81,13 @@ which php
 | Remote OK      | Remote | No             |
 | Arbeitnow      | Remote | No             |
 | Working Nomads | Remote | No             |
-| Adzuna         | Global | Yes (free)     |
-
-**Optional — Adzuna (free tier):**
-1. Register at https://developer.adzuna.com
-2. Add your App ID + Key to `config.php`
-3. Set `ADZUNA_COUNTRY` (gb, us, ng, au, ca, etc.)
+And more
 
 ---
 
 ## 🛠️ Customising Search Keywords
 
-Edit the `$skillKeywords` array inside `search_jobs.php` and `search_jobs_web.php`:
+Edit the `$skillKeywords` array inside `search_jobs.php`:
 
 ```php
 private array $skillKeywords = [
@@ -130,10 +114,4 @@ The daily digest email includes:
 
 - Keep `config.php` out of version control — add it to `.gitignore`
 - Never commit your Gmail App Password
-- Restrict web access to `search_jobs_web.php` and `test_email.php` using `.htaccess` if on a public server:
-
-```apache
-<Files "test_email.php">
-    Require ip 127.0.0.1 YOUR.IP.HERE
-</Files>
-```
+- Restrict web access to `search_jobs.php` and `test_email.php` using `.htaccess` if on a public server:

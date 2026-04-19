@@ -177,7 +177,7 @@ class JobSearcher
 
         $data = $parsed['data'] ?? $parsed;
 
-        if (array_keys($data) === range(0, count($data) - 1)) {
+        if (array_is_list($data) === range(0, count($data) - 1)) {
             return $data;
         }
 
@@ -413,6 +413,9 @@ class JobSearcher
 
             $lines = array_filter(explode("\n", $text));
             $title = trim(substr(reset($lines), 0, 80)) ?: 'HN Job Post';
+            $postedAt = isset($comment['created_at_i']) && $comment['created_at_i'] > 0
+                ? (int)$comment['created_at_i']
+                : time();
 
             $jobs[] = [
                 'id'          => 'hn_' . ($comment['id'] ?? md5($text)),
@@ -423,7 +426,7 @@ class JobSearcher
                 'description' => substr($text, 0, 300),
                 'tags'        => 'hacker news',
                 'source'      => 'Hacker News',
-                'posted_at'   => date('Y-m-d', $comment['created_at_i'] ?? time()),
+                'posted_at'   => date('Y-m-d', $postedAt),
             ];
         }
         return $jobs;
@@ -848,8 +851,6 @@ class JobSearcher
             CURLOPT_TIMEOUT        => 30,
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => false,
             CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             CURLOPT_HTTPHEADER     => array_merge([
                 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
