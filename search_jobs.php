@@ -224,7 +224,7 @@ class JobSearcher
     {
         $jobs = [];
         // Arbeitnow API accepts a single category — use the first valid one
-        $url  = 'https://www.arbeitnow.com/api/job-board-api?page=1';
+        $url  = 'https://www.arbeitnow.com/api/job-board-api?page=1&language=english&category=' . ($this->categoryKeywords[0] ?? 'development');
         $data = $this->httpGet($url);
 
         if (!$data) {
@@ -807,13 +807,12 @@ class JobSearcher
     private function filterBySkills(array $jobs): array
     {
         return array_values(array_filter($jobs, function (array $job): bool {
-            $haystack = strtolower(
-                ($job['title']       ?? '') . ' ' .
-                    ($job['description'] ?? '') . ' ' .
-                    ($job['tags']        ?? '')
-            );
+            $title = strtolower($job['title'] ?? '');
+            $description = strtolower($job['description'] ?? '');
+            $tags = strtolower($job['tags'] ?? '');
+
             foreach ($this->skillKeywords as $kw) {
-                if (str_contains($haystack, $kw)) {
+                if (str_contains($title, $kw) || (str_contains($description, $kw) && str_contains($tags, $kw))) {
                     return true;
                 }
             }
