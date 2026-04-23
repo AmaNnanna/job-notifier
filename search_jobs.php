@@ -57,6 +57,13 @@ class JobSearcher
         'api documentation',
         'documentation',
         'technical content',
+        'copywriter',
+        'documentation writer',
+        'api documentation',
+        'developer relations',
+        'devrel',
+        'remote technical writer',
+        'documentation specialist',
         'programmer writer',
         'software writer',
         'technology writer',
@@ -82,6 +89,50 @@ class JobSearcher
         'infrastructure',
         'startup',
         'cloud',
+    ];
+
+    private array $geoBlocklist = [
+        'us only',
+        'usa only',
+        'united states only',
+        'u.s. only',
+        'canada only',
+        'uk only',
+        'united kingdom only',
+        'eu only',
+        'europe only',
+        'european union only',
+        'australia only',
+        'new zealand only',
+        'must be based in',
+        'must reside in',
+        'authorized to work in the us',
+        'eligible to work in the uk',
+        'right to work in',
+        'visa sponsorship not',
+        'no sponsorship',
+        'eea only',
+        'schengen',
+    ];
+
+    private array $remoteAcceptanceSignals = [
+        'worldwide',
+        'anywhere',
+        'globally',
+        'global',
+        'all countries',
+        'any country',
+        'open to all',
+        'africa',
+        'nigeria',
+        'lagos',
+        'abuja',
+        'emea',
+        'remote ok',
+        'fully remote',
+        '100% remote',
+        'work from anywhere',
+        'location independent',
     ];
 
     /** Accumulated run statistics — populated by run() */
@@ -224,7 +275,7 @@ class JobSearcher
     {
         $jobs = [];
         // Arbeitnow API accepts a single category — use the first valid one
-        $url  = 'https://www.arbeitnow.com/api/job-board-api?page=1&language=english&category=' . ($this->categoryKeywords[0] ?? 'development');
+        $url  = 'https://www.arbeitnow.com/api/job-board-api?page=1&remote=true&language=en&category=development';
         $data = $this->httpGet($url);
 
         if (!$data) {
@@ -253,27 +304,29 @@ class JobSearcher
     private function fetchWorkingNomads(): array
     {
         $jobs = [];
-        // API accepts a single category slug — 'development' is the correct one
-        $data = $this->httpGet('https://www.workingnomads.com/api/exposed_jobs/?category=development');
+        foreach ($this->categoryKeywords as $category) {
+            $url  = "https://www.workingnomads.com/api/exposed_jobs/?category={$category}";
+            $data = $this->httpGet($url);
 
-        if (!$data) {
-            return [];
-        }
+            if (!$data) {
+                return [];
+            }
 
-        $listings = $this->mergeJson($data);
+            $listings = $this->mergeJson($data);
 
-        foreach ($listings as $item) {
-            $jobs[] = [
-                'id'          => 'nomads_' . ($item['id'] ?? md5($item['url'] ?? '')),
-                'title'       => $item['title']        ?? 'N/A',
-                'company'     => $item['company_name'] ?? 'N/A',
-                'location'    => 'Remote',
-                'url'         => $item['url']          ?? '#',
-                'description' => strip_tags($item['description'] ?? ''),
-                'tags'        => $item['tags']         ?? '',
-                'source'      => 'Working Nomads',
-                'posted_at'   => date('Y-m-d', strtotime($item['pub_date'] ?? 'now')),
-            ];
+            foreach ($listings as $item) {
+                $jobs[] = [
+                    'id'          => 'nomads_' . ($item['id'] ?? md5($item['url'] ?? '')),
+                    'title'       => $item['title']        ?? 'N/A',
+                    'company'     => $item['company_name'] ?? 'N/A',
+                    'location'    => 'Remote',
+                    'url'         => $item['url']          ?? '#',
+                    'description' => strip_tags($item['description'] ?? ''),
+                    'tags'        => $item['tags']         ?? '',
+                    'source'      => 'Working Nomads',
+                    'posted_at'   => date('Y-m-d', strtotime($item['pub_date'] ?? 'now')),
+                ];
+            }
         }
         return $jobs;
     }
@@ -282,23 +335,25 @@ class JobSearcher
     private function fetchRemotive(): array
     {
         $jobs = [];
-        // API accepts a single category — 'software-dev' covers all dev roles
-        $url  = 'https://remotive.com/api/remote-jobs?category=software-dev';
-        $data = $this->httpGet($url);
-        if (!$data) return [];
-        $listings = $this->mergeJson($data);
-        foreach ($listings as $item) {
-            $jobs[] = [
-                'id'          => 'remotive_' . $item['id'],
-                'title'       => $item['title']       ?? 'N/A',
-                'company'     => $item['company_name'] ?? 'N/A',
-                'location'    => $item['candidate_required_location'] ?? 'N/A',
-                'url'         => $item['url']          ?? '#',
-                'description' => strip_tags($item['description'] ?? ''),
-                'tags'        => implode(', ', $item['tags'] ?? []),
-                'source'      => 'Remotive',
-                'posted_at'   => date('Y-m-d', strtotime($item['publication_date'] ?? 'now')),
-            ];
+        foreach ($this->categoryKeywords as $category) {
+            $url  = "https://remotive.com/api/remote-jobs?category={$category}";
+            $data = $this->httpGet($url);
+
+            if (!$data) return [];
+            $listings = $this->mergeJson($data);
+            foreach ($listings as $item) {
+                $jobs[] = [
+                    'id'          => 'remotive_' . $item['id'],
+                    'title'       => $item['title']       ?? 'N/A',
+                    'company'     => $item['company_name'] ?? 'N/A',
+                    'location'    => $item['candidate_required_location'] ?? 'N/A',
+                    'url'         => $item['url']          ?? '#',
+                    'description' => strip_tags($item['description'] ?? ''),
+                    'tags'        => implode(', ', $item['tags'] ?? []),
+                    'source'      => 'Remotive',
+                    'posted_at'   => date('Y-m-d', strtotime($item['publication_date'] ?? 'now')),
+                ];
+            }
         }
         return $jobs;
     }
@@ -308,7 +363,7 @@ class JobSearcher
     {
         $jobs = [];
         $skills = implode(',', $this->skillKeywords);
-        $url    = "https://himalayas.app/jobs/api?skills={$skills}&limit=100";
+        $url    = "https://himalayas.app/jobs/api?skills={$skills}&limit=100&remote=true";
         $data   = $this->httpGet($url);
         if (!$data) return [];
         $listings = $this->mergeJson($data);
@@ -335,6 +390,7 @@ class JobSearcher
         $feeds = [
             'https://weworkremotely.com/categories/remote-programming-jobs.rss',
             'https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss',
+            'https://weworkremotely.com/categories/remote-writing-jobs.rss',
         ];
         foreach ($feeds as $url) {
             $xml = $this->httpGet($url);
@@ -364,7 +420,8 @@ class JobSearcher
     private function fetchJobicy(): array
     {
         $jobs = [];
-        $url  = 'https://jobicy.com/api/v2/remote-jobs?count=50&tag=php,javascript,react,nodejs,laravel,vue';
+        $tags = implode(',', $this->skillKeywords);
+        $url  = "https://jobicy.com/api/v2/remote-jobs?count=50&tag={$tags}";
         $data = $this->httpGet($url);
         if (!$data) return [];
         $listings = $this->mergeJson($data);
@@ -803,6 +860,90 @@ class JobSearcher
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
+    private function isEnglish(string $text): bool
+    {
+        // Common German, French, Spanish, Portuguese words that appear in job posts
+        $foreignMarkers = [
+            // German
+            'wir suchen',
+            'stellenangebot',
+            'aufgaben',
+            'kenntnisse',
+            'erfahrung',
+            'bewerbung',
+            'gehalt',
+            'vollzeit',
+            'teilzeit',
+            'standort',
+            'unternehmen',
+            'entwickler',
+            'anforderungen',
+            'über uns',
+            'dein profil',
+            // French
+            'nous recherchons',
+            'poste',
+            'entreprise',
+            'compétences',
+            'expérience',
+            'candidature',
+            'salaire',
+            'temps plein',
+            // Spanish
+            'buscamos',
+            'empresa',
+            'experiencia',
+            'requisitos',
+            'salario',
+            'jornada completa',
+            'incorporación',
+            // Portuguese
+            'procuramos',
+            'empresa',
+            'experiência',
+            'requisitos',
+            'salário',
+        ];
+
+        $lower = strtolower($text);
+        foreach ($foreignMarkers as $marker) {
+            if (str_contains($lower, $marker)) return false;
+        }
+        return true;
+    }
+
+    private function isRemoteAndNigeriaFriendly(array $job): bool
+    {
+        $title    = strtolower($job['title']       ?? '');
+        $desc     = strtolower($job['description'] ?? '');
+        $location = strtolower($job['location']    ?? '');
+        $tags     = strtolower($job['tags']        ?? '');
+
+        $fullText = $title . ' ' . $desc . ' ' . $location . ' ' . $tags;
+
+        // 1. Must mention remote somewhere
+        $isRemote = str_contains($fullText, 'remote')
+            || str_contains($location, 'remote')
+            || str_contains($location, 'worldwide')
+            || str_contains($location, 'anywhere')
+            || $location === '';          // blank location usually means remote
+
+        if (!$isRemote) return false;
+
+        // 2. Reject if geo-restricted
+        foreach ($this->geoBlocklist as $blocked) {
+            if (str_contains($fullText, $blocked)) return false;
+        }
+
+        // 3. Boost confidence: if it has a positive worldwide/Nigeria signal, pass immediately
+        foreach ($this->remoteAcceptanceSignals as $signal) {
+            if (str_contains($fullText, $signal)) return true;
+        }
+
+        // 4. No geo-restriction found and remote — treat as acceptable
+        //    (most remote jobs that don't specify a restriction are open worldwide)
+        return true;
+    }
 
     private function filterBySkills(array $jobs): array
     {
@@ -810,6 +951,11 @@ class JobSearcher
             $title = strtolower($job['title'] ?? '');
             $description = strtolower($job['description'] ?? '');
             $tags = strtolower($job['tags'] ?? '');
+
+            if (!$this->isRemoteAndNigeriaFriendly($job)) return false;
+
+            $fullText = ($job['title'] ?? '') . ' ' . ($job['description'] ?? '');
+            if (!$this->isEnglish($fullText)) return false;
 
             foreach ($this->skillKeywords as $kw) {
                 if (str_contains($title, $kw) || (str_contains($description, $kw) && str_contains($tags, $kw))) {
